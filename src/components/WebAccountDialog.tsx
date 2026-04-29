@@ -8,6 +8,24 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function isNetworkAccountError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return /failed to fetch|fetch failed|network|load failed/i.test(error.message);
+}
+
+function formatAccountError(error: unknown, isRTL: boolean, fallback: string) {
+  if (isNetworkAccountError(error)) {
+    return isRTL
+      ? 'تعذر الاتصال بخدمة الحسابات الآن. يمكنك إكمال الطلب كضيف، ويجب التأكد من رابط Supabase في إعدادات النشر.'
+      : 'Unable to reach the account service right now. You can continue as a guest, and the Supabase URL must be checked in deployment settings.';
+  }
+
+  return error instanceof Error ? error.message : fallback;
+}
+
 export default function WebAccountDialog() {
   const { i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
@@ -97,9 +115,11 @@ export default function WebAccountDialog() {
       );
     } catch (requestError) {
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : (isRTL ? 'تعذر إرسال الكود الآن.' : 'Unable to send the code right now.'),
+        formatAccountError(
+          requestError,
+          isRTL,
+          isRTL ? 'تعذر إرسال الكود الآن.' : 'Unable to send the code right now.',
+        ),
       );
     } finally {
       setLoading(false);
@@ -127,9 +147,11 @@ export default function WebAccountDialog() {
       );
     } catch (verifyError) {
       setError(
-        verifyError instanceof Error
-          ? verifyError.message
-          : (isRTL ? 'تعذر تأكيد الكود الآن.' : 'Unable to verify the code right now.'),
+        formatAccountError(
+          verifyError,
+          isRTL,
+          isRTL ? 'تعذر تأكيد الكود الآن.' : 'Unable to verify the code right now.',
+        ),
       );
     } finally {
       setLoading(false);
@@ -162,9 +184,11 @@ export default function WebAccountDialog() {
       );
     } catch (saveError) {
       setError(
-        saveError instanceof Error
-          ? saveError.message
-          : (isRTL ? 'تعذر حفظ البيانات الآن.' : 'Unable to save your details right now.'),
+        formatAccountError(
+          saveError,
+          isRTL,
+          isRTL ? 'تعذر حفظ البيانات الآن.' : 'Unable to save your details right now.',
+        ),
       );
     } finally {
       setSavingProfile(false);
