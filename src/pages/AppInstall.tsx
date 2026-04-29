@@ -161,21 +161,21 @@ function buildIosFallbackSteps(isRTL: boolean): InstallGuideStep[] {
     ? [
         {
           title: 'افتح الصفحة من Safari',
-          description: 'نسخة iPhone المؤقتة هي Web App، وiOS يثبتها من Safari فقط.',
+          description: 'افتح رابط المتجر من متصفح Safari على iPhone.',
         },
         {
           title: 'اضغط مشاركة',
-          description: 'من شريط Safari اضغط زر المشاركة.',
+          description: 'اضغط زر المشاركة من شريط Safari.',
         },
         {
           title: 'اختر إضافة للشاشة الرئيسية',
-          description: 'بعد الإضافة ستظهر كتطبيق على شاشة iPhone الرئيسية.',
+          description: 'سيظهر المتجر كتطبيق جاهز على شاشة iPhone الرئيسية.',
         },
       ]
     : [
         {
           title: 'Open this page in Safari',
-          description: 'The temporary iPhone version is a Web App, and iOS installs it from Safari.',
+          description: 'Open the store link from Safari on your iPhone.',
         },
         {
           title: 'Tap Share',
@@ -183,7 +183,7 @@ function buildIosFallbackSteps(isRTL: boolean): InstallGuideStep[] {
         },
         {
           title: 'Choose Add to Home Screen',
-          description: 'After adding it, the app appears on your iPhone home screen.',
+          description: 'The store will appear as an app on your iPhone home screen.',
         },
       ];
 }
@@ -272,8 +272,8 @@ export default function AppInstall() {
           : 'Tap the button and install the iPhone app directly from TestFlight.')
       : iosDevice
         ? (isRTL
-            ? 'تطبيق iPhone الحقيقي يحتاج TestFlight، والنسخة المؤقتة المتاحة الآن هي Web App.'
-            : 'The real iPhone app needs TestFlight, and the temporary version available now is a Web App.')
+            ? 'ثبّت المتجر على شاشة iPhone الرئيسية بخطوات بسيطة من Safari.'
+            : 'Install the store on your iPhone home screen with a few simple Safari steps.')
         : androidDevice && hasNativeAndroidDownload
           ? (isRTL
               ? 'يمكنك تنزيل تطبيق Android مباشرة من الموقع وتثبيته من ملف APK.'
@@ -384,7 +384,7 @@ export default function AppInstall() {
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-[#153b66] px-6 py-3 text-base font-semibold text-white shadow-[0_18px_40px_-24px_rgba(21,59,102,0.65)] transition hover:bg-[#0f2f53]"
                   >
                     <Smartphone className="h-5 w-5" />
-                    {isRTL ? 'ثبّت نسخة iPhone المؤقتة' : 'Install Temporary iPhone Version'}
+                    {isRTL ? 'ثبّت التطبيق على iPhone' : 'Install on iPhone'}
                   </button>
                 ) : androidDevice && hasNativeAndroidDownload ? (
                   <a
@@ -435,8 +435,8 @@ export default function AppInstall() {
                 {!isConfigured ? (
                   <p className="mt-2 text-[#153b66]">
                     {isRTL
-                      ? 'حالياً يمكنك تنزيل تطبيق Android مباشرة، وتثبيت نسخة iPhone المؤقتة كـ Web App، وسيعمل زر TestFlight فور إضافة الرابط.'
-                      : 'Right now you can download Android directly, install the temporary iPhone Web App, and the TestFlight button will work as soon as the link is added.'}
+                      ? 'يمكنك تنزيل تطبيق Android مباشرة، أو تثبيت المتجر على iPhone من Safari بخطوات بسيطة.'
+                      : 'You can download Android directly, or install the store on iPhone from Safari with simple steps.'}
                   </p>
                 ) : null}
               </div>
@@ -611,8 +611,8 @@ export default function AppInstall() {
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-8 text-white/78 sm:text-base">
                   {isRTL
-                    ? 'نزّل تطبيق Android مباشرة، وثبّت نسخة iPhone المؤقتة كـ Web App لحين توفر رابط TestFlight. ويمكن لاحقًا إضافة حساب بالإيميل لحفظ معلوماتك وطلباتك.'
-                    : 'Download Android directly, and install the temporary iPhone Web App until the TestFlight link is available. An optional email account can organize your details later.'}
+                    ? 'نزّل تطبيق Android مباشرة، أو ثبّت المتجر على iPhone من Safari، ويمكنك لاحقًا إضافة حساب بالإيميل لحفظ معلوماتك وطلباتك.'
+                    : 'Download Android directly, or install the store on iPhone from Safari. An optional email account can organize your details later.'}
                 </p>
               </div>
 
@@ -648,10 +648,10 @@ export default function AppInstall() {
             <div className="flex items-start justify-between gap-4">
               <div className={isRTL ? 'text-right' : 'text-left'}>
                 <p className="text-sm font-semibold text-[#5b738a]">
-                  {isRTL ? 'حل iPhone المؤقت' : 'Temporary iPhone Option'}
+                  {isRTL ? 'تثبيت iPhone' : 'iPhone Install'}
                 </p>
                 <h2 id="ios-fallback-title" className="mt-2 text-2xl font-black text-[#10263f]">
-                  {isRTL ? 'ثبّت نسخة الويب على الشاشة الرئيسية' : 'Install the Web App on your home screen'}
+                  {isRTL ? 'ثبّت المتجر على الشاشة الرئيسية' : 'Install the store on your home screen'}
                 </h2>
               </div>
               <button
@@ -666,8 +666,8 @@ export default function AppInstall() {
 
             <p className={`mt-4 text-sm leading-7 text-slate-600 ${isRTL ? 'text-right' : 'text-left'}`}>
               {isRTL
-                ? 'ده حل مؤقت متاح الآن على iPhone. التثبيت الحقيقي بضغطة واحدة كتطبيق Native سيعمل فور إضافة رابط TestFlight.'
-                : 'This is the temporary option available now on iPhone. True one-tap native install will work as soon as a TestFlight link is added.'}
+                ? 'اتبع الخطوات السريعة التالية وسيظهر المتجر على شاشة iPhone كتطبيق جاهز للاستخدام.'
+                : 'Follow these quick steps and the store will appear on your iPhone home screen as an app.'}
             </p>
 
             <div className="mt-5 space-y-3">
