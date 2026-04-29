@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -5,6 +6,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock3,
+  Download,
   ExternalLink,
   Globe,
   MapPin,
@@ -19,10 +21,15 @@ import {
 import { useWebAuth } from '../features/auth/WebAuthProvider';
 import { BRAND_NAME_AR, BRAND_NAME_EN } from '../lib/brand';
 import {
+  clearDeferredInstallPrompt,
+  ensurePwaInstallTracking,
   getAndroidAppUrl,
   getIosAppUrl,
   isIosDevice,
   isStandaloneDisplayMode,
+  subscribeToDeferredInstallPrompt,
+  type BeforeInstallPromptEvent,
+  type InstallPromptOutcome,
 } from '../lib/pwa';
 
 type FeatureCard = {
@@ -147,15 +154,72 @@ export default function AppInstall() {
   const { i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
   const { isConfigured, session, openAccountDialog } = useWebAuth();
-  const isInstalled = isStandaloneDisplayMode();
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstalled, setIsInstalled] = useState(() => isStandaloneDisplayMode());
+  const [promptOutcome, setPromptOutcome] = useState<InstallPromptOutcome | null>(null);
+  const [isPrompting, setIsPrompting] = useState(false);
   const iosDevice = isIosDevice();
   const androidDevice = isAndroidDevice();
   const iosAppUrl = getIosAppUrl();
   const androidAppUrl = getAndroidAppUrl();
   const hasNativeIosDownload = Boolean(iosAppUrl);
   const hasNativeAndroidDownload = Boolean(androidAppUrl);
+  const canTriggerBrowserInstall = !iosDevice && !androidDevice && !isInstalled && deferredPrompt !== null;
   const featureCards = buildFeatureCards(isRTL);
   const experienceCards = buildExperienceCards(isRTL);
+
+  useEffect(() => {
+    const syncInstalledState = () => {
+      setIsInstalled(isStandaloneDisplayMode());
+    };
+
+    const handleAppInstalled = () => {
+      syncInstalledState();
+      setDeferredPrompt(null);
+      setPromptOutcome('accepted');
+    };
+
+    ensurePwaInstallTracking();
+    syncInstalledState();
+    const unsubscribePrompt = subscribeToDeferredInstallPrompt((event) => {
+      setDeferredPrompt(event);
+      if (event) {
+        setPromptOutcome(null);
+      }
+    });
+
+    window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener('focus', syncInstalledState);
+
+    return () => {
+      unsubscribePrompt();
+      window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('focus', syncInstalledState);
+    };
+  }, []);
+
+  const handleBrowserInstallClick = async () => {
+    if (!deferredPrompt || isPrompting) {
+      return;
+    }
+
+    setIsPrompting(true);
+
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+
+      setPromptOutcome(outcome);
+      clearDeferredInstallPrompt();
+      setDeferredPrompt(null);
+
+      if (outcome === 'accepted') {
+        setIsInstalled(true);
+      }
+    } finally {
+      setIsPrompting(false);
+    }
+  };
 
   const availabilityText = isInstalled
     ? (isRTL
@@ -173,9 +237,17 @@ export default function AppInstall() {
           ? (isRTL
               ? 'يمكنك تنزيل تطبيق Android مباشرة من الموقع وتثبيته من ملف APK.'
               : 'You can download the Android app directly from the website and install it from the APK file.')
+          : canTriggerBrowserInstall
+            ? (isRTL
+                ? 'يمكنك تثبيت التطبيق على هذا الجهاز مباشرة من المتصفح.'
+                : 'You can install the app on this device directly from the browser.')
+            : promptOutcome === 'dismissed'
+              ? (isRTL
+                  ? 'يمكنك إعادة المحاولة لاحقًا من هذه الصفحة أو من قائمة المتصفح.'
+                  : 'You can try again later from this page or from the browser menu.')
           : (isRTL
-              ? 'التثبيت كتطبيق أصلي متاح فقط من روابط Android أو iPhone الرسمية.'
-              : 'Native app installation is available only from the Android or iPhone official links.');
+              ? 'التثبيت غير ظاهر حاليًا على هذا المتصفح. جرّب Chrome أو Edge بعد نشر الموقع.'
+              : 'Install is not currently available in this browser. Try Chrome or Edge after the site is deployed.');
 
   return (
     <main className="overflow-x-hidden bg-[linear-gradient(180deg,#eef6fb_0%,#ffffff_22%,#f4f9fc_100%)] pt-28 sm:pt-32">
@@ -278,6 +350,20 @@ export default function AppInstall() {
                     <ExternalLink className="h-5 w-5" />
                     <span>{isRTL ? 'نزّل تطبيق Android' : 'Download the Android App'}</span>
                   </a>
+                ) : canTriggerBrowserInstall ? (
+                  <button
+                    type="button"
+                    onClick={handleBrowserInstallClick}
+                    disabled={isPrompting}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#153b66] px-6 py-3 text-base font-semibold text-white shadow-[0_18px_40px_-24px_rgba(21,59,102,0.65)] transition hover:bg-[#0f2f53] disabled:cursor-wait disabled:opacity-75"
+                  >
+                    <Download className="h-5 w-5" />
+                    <span>
+                      {isPrompting
+                        ? (isRTL ? 'جاري فتح نافذة التثبيت' : 'Opening Install Prompt')
+                        : (isRTL ? 'ثبّت على الديسكتوب' : 'Install on Desktop')}
+                    </span>
+                  </button>
                 ) : (
                   <span className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/90 px-6 py-3 text-base font-semibold text-slate-500 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)]">
                     <Globe className="h-5 w-5" />
