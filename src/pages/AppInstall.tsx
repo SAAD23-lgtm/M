@@ -227,12 +227,12 @@ export default function AppInstall() {
         : 'The app is already installed on this device and ready to use.')
     : iosDevice && hasNativeIosDownload
       ? (isRTL
-          ? 'اضغط الزر وثبّت التطبيق من الرابط الرسمي مباشرة.'
-          : 'Tap the button and install the app directly from the official link.')
+          ? 'اضغط الزر وثبّت تطبيق iPhone من TestFlight مباشرة.'
+          : 'Tap the button and install the iPhone app directly from TestFlight.')
       : iosDevice
         ? (isRTL
-            ? 'تطبيق iPhone يحتاج رابط TestFlight أو App Store للتثبيت بدون Safari.'
-            : 'The iPhone app needs a TestFlight or App Store link to install without Safari.')
+            ? 'تطبيق iPhone يحتاج رابط TestFlight.'
+            : 'The iPhone app needs a TestFlight link.')
         : androidDevice && hasNativeAndroidDownload
           ? (isRTL
               ? 'يمكنك تنزيل تطبيق Android مباشرة من الموقع وتثبيته من ملف APK.'
@@ -339,7 +339,7 @@ export default function AppInstall() {
                 ) : iosDevice ? (
                   <span className="inline-flex items-center justify-center gap-2 rounded-full border border-[#153b66]/15 bg-white/90 px-6 py-3 text-base font-semibold text-[#153b66] shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)]">
                     <Smartphone className="h-5 w-5" />
-                    {isRTL ? 'iPhone يحتاج TestFlight أو App Store' : 'iPhone needs TestFlight or App Store'}
+                    {isRTL ? 'iPhone يحتاج رابط TestFlight' : 'iPhone needs a TestFlight link'}
                   </span>
                 ) : androidDevice && hasNativeAndroidDownload ? (
                   <a
@@ -390,8 +390,8 @@ export default function AppInstall() {
                 {!isConfigured ? (
                   <p className="mt-2 text-[#153b66]">
                     {isRTL
-                      ? 'حالياً يمكنك تنزيل تطبيق Android مباشرة، أو استخدام رابط iPhone الرسمي عندما يتوفر، والطلب كضيف يظل متاحًا.'
-                      : 'Right now you can download the Android app directly, or use the official iPhone link when it is available, while guest ordering remains available.'}
+                      ? 'حالياً يمكنك تنزيل تطبيق Android مباشرة، وسيعمل زر iPhone فور إضافة رابط TestFlight.'
+                      : 'Right now you can download the Android app directly, and the iPhone button will work as soon as the TestFlight link is added.'}
                   </p>
                 ) : null}
               </div>
@@ -566,8 +566,8 @@ export default function AppInstall() {
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-8 text-white/78 sm:text-base">
                   {isRTL
-                    ? 'نزّل تطبيق Android مباشرة، أو استخدم رابط iPhone الرسمي عندما يتوفر، وابدأ التصفح والطلب بسهولة. ويمكن لاحقًا إضافة حساب بالإيميل لحفظ معلوماتك وطلباتك.'
-                    : 'Download the Android app directly, or use the official iPhone link when available, then start browsing and ordering with ease. An optional email account can organize your details later.'}
+                    ? 'نزّل تطبيق Android مباشرة، أو استخدم رابط TestFlight عند توفره لتثبيت iPhone. ويمكن لاحقًا إضافة حساب بالإيميل لحفظ معلوماتك وطلباتك.'
+                    : 'Download the Android app directly, or use the TestFlight link when available to install on iPhone. An optional email account can organize your details later.'}
                 </p>
               </div>
 

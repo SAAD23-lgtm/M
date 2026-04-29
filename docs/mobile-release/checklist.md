@@ -39,6 +39,7 @@
 - Real App Store screenshots from device/simulator builds
 - Real Google Play screenshots from device builds
 - Developer accounts and billing setup
+- TestFlight public link for iPhone one-tap install; once available, set `VITE_IOS_APP_URL`.
 - Privacy policy URL: `https://riq.com/mobile-privacy-policy.html`
 - Support URL: `https://riq.com/mobile-support.html`
 
