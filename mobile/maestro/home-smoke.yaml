@@ -1,0 +1,21 @@
+appId: com.riq.store
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: tab-home
+- tapOn:
+    id: language-toggle
+- assertVisible: Home
+- tapOn:
+    id: tab-products
+- assertVisible: Search by product or brand...
+- tapOn:
+    id: tab-brands
+- assertVisible: Explore brands and how many products each one offers.
+- tapOn:
+    id: tab-offers
+- assertVisible: Best bundled deals ready for a quick checkout.
+- tapOn:
+    id: tab-cart
+- assertVisible: Your cart is empty

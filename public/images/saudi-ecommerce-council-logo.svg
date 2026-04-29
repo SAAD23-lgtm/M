@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 112" fill="none">
+  <rect width="360" height="112" rx="22" fill="#0B5D57"/>
+  <rect x="1.5" y="1.5" width="357" height="109" rx="20.5" stroke="white" stroke-opacity=".14" stroke-width="3"/>
+  <g transform="translate(18 18)">
+    <circle cx="38" cy="38" r="30" stroke="white" stroke-width="2.4" stroke-opacity=".92"/>
+    <circle cx="38" cy="38" r="19.5" stroke="white" stroke-width="1.8" stroke-opacity=".9" stroke-dasharray="2.6 4.2"/>
+    <circle cx="38" cy="38" r="4.8" fill="white"/>
+    <g fill="white">
+      <path d="M38 7l4.8 11.2L38 27l-4.8-8.8L38 7Z"/>
+      <path d="M38 49l4.8 8.8L38 69l-4.8-11.2L38 49Z"/>
+      <path d="M7 38l11.2-4.8L27 38l-8.8 4.8L7 38Z"/>
+      <path d="M49 38l8.8-4.8L69 38l-11.2 4.8L49 38Z"/>
+    </g>
+    <g fill="white" opacity=".96">
+      <g transform="rotate(45 38 38)">
+        <path d="M38 8.5l4 9.6L38 25.4l-4-7.3L38 8.5Z"/>
+        <path d="M38 50.6l4 7.3L38 67.5l-4-9.6L38 50.6Z"/>
+        <path d="M8.5 38l9.6-4L25.4 38l-7.3 4L8.5 38Z"/>
+        <path d="M50.6 38l7.3-4L67.5 38l-9.6 4L50.6 38Z"/>
+      </g>
+      <g transform="rotate(22.5 38 38)">
+        <path d="M38 12l2.9 7L38 24l-2.9-5L38 12Z" opacity=".88"/>
+        <path d="M38 52l2.9 5L38 64l-2.9-7L38 52Z" opacity=".88"/>
+        <path d="M12 38l7-2.9L24 38l-5 2.9L12 38Z" opacity=".88"/>
+        <path d="M52 38l5-2.9L64 38l-7 2.9L52 38Z" opacity=".88"/>
+      </g>
+    </g>
+  </g>
+  <text
+    x="102"
+    y="45"
+    fill="white"
+    font-family="'Segoe UI', Tahoma, Arial, sans-serif"
+    font-size="13"
+    font-weight="700"
+    direction="rtl"
+    unicode-bidi="plaintext"
+  >مجلس التجارة الإلكترونية</text>
+  <text
+    x="102"
+    y="70"
+    fill="white"
+    font-family="'Segoe UI', Tahoma, Arial, sans-serif"
+    font-size="12"
+    font-weight="600"
+    letter-spacing=".3"
+  >E-Commerce Council</text>
+  <path d="M102 80h158" stroke="white" stroke-opacity=".24" stroke-width="2" stroke-linecap="round"/>
+</svg>

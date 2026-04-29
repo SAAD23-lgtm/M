@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Debug 2</title>
+    <style>
+        body { font-family: sans-serif; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .card { border: 1px solid #ccc; padding: 10px; text-align: center; }
+        img { max-width: 100%; height: auto; max-height: 400px; }
+    </style>
+</head>
+<body>
+    <h1>Image Identification Debug (Missed Images)</h1>
+    <div class="grid" id="grid"></div>
+
+    <script>
+        const images = [
+            "WhatsApp_Image_2026-03-22_at_9.00.47_PM_2.jpg",
+            "WhatsApp_Image_2026-03-22_at_9.00.48_PM_2.jpg",
+            "WhatsApp_Image_2026-03-22_at_9.00.49_PM_2.jpg",
+            "WhatsApp_Image_2026-03-22_at_9.00.50_PM_1.jpg",
+            "WhatsApp_Image_2026-03-22_at_9.01.00_PM_1.jpg",
+            "WhatsApp_Image_2026-03-22_at_9.01.08_PM.jpg",
+            "image7.jpg"
+        ];
+
+        const grid = document.getElementById('grid');
+        images.forEach(img => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <h3>${img}</h3>
+                <img src="/images/products_processed/${img}" alt="Image">
+            `;
+            grid.appendChild(card);
+        });
+    </script>
+</body>
+</html>

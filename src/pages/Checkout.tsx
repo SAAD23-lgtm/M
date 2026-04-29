@@ -1,0 +1,670 @@
+import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ArrowLeft, CheckCircle2, MapPin, Locate, Search, Navigation
+} from 'lucide-react';
+import { useCart } from '../context/CartContext';
+import { useWebAuth } from '../features/auth/WebAuthProvider';
+import { clearWebCheckoutDraft, loadWebCheckoutDraft, saveWebCheckoutDraft } from '../lib/webCheckoutDraft';
+import { BRAND_NAME_EN } from '../lib/brand';
+import { loadExternalScript, loadExternalStylesheet } from '../lib/externalAssets';
+import {
+  MOYASAR_SCRIPT_URL,
+  MOYASAR_STYLES_URL,
+  getMoyasarPublicKey,
+} from '../lib/payments';
+import { persistCompletedOrder } from '../services/webAccount';
+import { toAbsoluteUrl, withBasePath } from '../lib/site';
+import { formatSarPrice } from '../lib/utils';
+import ProductImage from '../components/ProductImage';
+
+const SUCCESS_URL = toAbsoluteUrl(`${withBasePath('/checkout')}?status=success`);
+const LEAFLET_SCRIPT_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+const LEAFLET_STYLES_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+
+type CheckoutFormData = {
+  name: string;
+  phone: string;
+  address: string;
+  lat: number;
+  lng: number;
+};
+
+export default function Checkout() {
+  const { i18n } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { items, totalPrice, totalItems, clearCart } = useCart();
+  const { authReady, isConfigured, session, profile, saveProfile, refreshOrders, openAccountDialog } = useWebAuth();
+  const isRTL = i18n.language === 'ar';
+
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const moyasarInitializedRef = useRef(false);
+  const successHandledRef = useRef(false);
+
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState<CheckoutFormData>(() => {
+    const saved = localStorage.getItem('reeq_checkout_data');
+    return saved ? JSON.parse(saved) : {
+      name: '',
+      phone: '',
+      address: '',
+      lat: 24.7136,
+      lng: 46.6753,
+    };
+  });
+
+  // Persist form data to localStorage
+  useEffect(() => {
+    localStorage.setItem('reeq_checkout_data', JSON.stringify(formData));
+  }, [formData]);
+
+  const [showMap, setShowMap] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [isMoyasarReady, setIsMoyasarReady] = useState(false);
+  const [isLeafletReady, setIsLeafletReady] = useState(false);
+  const [paymentLoadError, setPaymentLoadError] = useState('');
+  const [mapLoadError, setMapLoadError] = useState('');
+  const moyasarPublicKey = getMoyasarPublicKey();
+
+  const queryParams = new URLSearchParams(location.search);
+  const isSuccessFromMoyasar = queryParams.get('status') === 'success' || queryParams.get('id');
+  const paymentReferenceFromQuery = queryParams.get('id')?.trim() || '';
+  const [isSuccess, setIsSuccess] = useState(!!isSuccessFromMoyasar);
+  const [accountNotice, setAccountNotice] = useState('');
+  const [orderSyncMessage, setOrderSyncMessage] = useState('');
+
+  const deliveryFee = totalPrice >= 100 ? 0 : 15;
+  const finalTotal = totalPrice + deliveryFee;
+
+  // Handle Moyasar Success Return
+  useEffect(() => {
+    if (!isSuccessFromMoyasar || !authReady || successHandledRef.current) {
+      return;
+    }
+
+    successHandledRef.current = true;
+    setIsSuccess(true);
+
+    void (async () => {
+      const draft = loadWebCheckoutDraft();
+
+      try {
+        if (session?.userId && draft) {
+          setOrderSyncMessage(
+            isRTL
+              ? 'تم الدفع بنجاح، وجارٍ حفظ الطلب داخل حسابك.'
+              : 'Payment succeeded, and your order is being saved to your account.',
+          );
+
+          await persistCompletedOrder(session.userId, session.email, {
+            ...draft,
+            reference: paymentReferenceFromQuery || draft.reference,
+          });
+
+          await refreshOrders();
+          setOrderSyncMessage(
+            isRTL
+              ? 'تم حفظ الطلب داخل حسابك بنجاح.'
+              : 'Your order was saved to your account successfully.',
+          );
+        } else if (session?.userId) {
+          setOrderSyncMessage(
+            isRTL
+              ? 'تم الدفع بنجاح، لكن لم نعثر على مسودة الطلب لحفظها داخل الحساب.'
+              : 'Payment succeeded, but no checkout draft was found to save into your account.',
+          );
+        } else {
+          if (!isConfigured) {
+            setOrderSyncMessage(
+              isRTL
+                ? 'تم الدفع بنجاح، وتم تنفيذ هذا الطلب كضيف لأن الحسابات المحفوظة غير مفعلة حالياً.'
+                : 'Payment succeeded, and this order was completed as a guest because saved accounts are not enabled right now.',
+            );
+          } else {
+            setOrderSyncMessage(
+            isRTL
+              ? 'تم الدفع بنجاح. يمكنك التسجيل لاحقًا، لكن هذا الطلب تم كضيف.'
+              : 'Payment succeeded. You can sign in later, but this order was placed as a guest.',
+            );
+          }
+        }
+      } catch (error) {
+        console.error('Unable to save the completed order inside the web account.', error);
+        setOrderSyncMessage(
+          isRTL
+            ? 'تم الدفع بنجاح، لكن تعذر حفظ الطلب داخل حسابك الآن.'
+            : 'Payment succeeded, but the order could not be saved in your account right now.',
+        );
+      } finally {
+        clearCart();
+        localStorage.removeItem('reeq_checkout_data');
+        clearWebCheckoutDraft();
+      }
+    })();
+  }, [authReady, clearCart, isRTL, isSuccessFromMoyasar, paymentReferenceFromQuery, refreshOrders, session]);
+
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    setFormData((current) => ({
+      ...current,
+      name: current.name || profile.fullName || '',
+      phone: current.phone || profile.phone || '',
+      address: current.address || profile.defaultAddress || '',
+      lat: current.address ? current.lat : (profile.defaultLat ?? current.lat),
+      lng: current.address ? current.lng : (profile.defaultLng ?? current.lng),
+    }));
+  }, [profile]);
+
+  useEffect(() => {
+    if (step !== 2 || isSuccess) {
+      moyasarInitializedRef.current = false;
+      return;
+    }
+
+    let isCancelled = false;
+    setPaymentLoadError('');
+
+    if (!moyasarPublicKey) {
+      setPaymentLoadError(
+        isRTL
+          ? 'يرجى ضبط VITE_MOYASAR_PUBLIC_KEY بمفتاح Moyasar الحي قبل تفعيل الدفع على الموقع.'
+          : 'Set VITE_MOYASAR_PUBLIC_KEY to your live Moyasar public key before enabling production checkout.'
+      );
+      return;
+    }
+
+    Promise.all([
+      loadExternalStylesheet(MOYASAR_STYLES_URL),
+      loadExternalScript(MOYASAR_SCRIPT_URL),
+    ])
+      .then(() => {
+        if (!isCancelled) {
+          setIsMoyasarReady(true);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setPaymentLoadError(
+            isRTL
+              ? 'تعذر تحميل بوابة الدفع الآن. حاول مرة أخرى خلال لحظات.'
+              : 'Unable to load the payment gateway right now. Please try again shortly.'
+          );
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isSuccess, isRTL, moyasarPublicKey, step]);
+
+  // Handle Moyasar Initialization
+  useEffect(() => {
+    if (step !== 2 || isSuccess || !isMoyasarReady || moyasarInitializedRef.current) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const moyasar = (window as any).Moyasar;
+      const container = document.querySelector<HTMLElement>('.moyasar-form-container');
+
+      if (!moyasar || !container) {
+        return;
+      }
+
+      container.innerHTML = '';
+      moyasar.init({
+        element: '.moyasar-form-container',
+        amount: finalTotal * 100,
+        currency: 'SAR',
+        description: `Order from ${BRAND_NAME_EN} - ${totalItems} items`,
+        publishable_api_key: moyasarPublicKey,
+        callback_url: SUCCESS_URL,
+        methods: ['creditcard', 'applepay', 'stcpay'],
+      });
+      moyasarInitializedRef.current = true;
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [finalTotal, isMoyasarReady, isSuccess, moyasarPublicKey, step, totalItems]);
+
+  useEffect(() => {
+    if (!showMap) {
+      return;
+    }
+
+    let isCancelled = false;
+    setMapLoadError('');
+
+    Promise.all([
+      loadExternalStylesheet(LEAFLET_STYLES_URL),
+      loadExternalScript(LEAFLET_SCRIPT_URL),
+    ])
+      .then(() => {
+        if (!isCancelled) {
+          setIsLeafletReady(true);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setMapLoadError(
+            isRTL
+              ? 'تعذر تحميل الخريطة الآن. يمكنك كتابة العنوان يدويًا والمتابعة.'
+              : 'Unable to load the map right now. You can enter the address manually and continue.'
+          );
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isRTL, showMap]);
+
+  // Leaflet Map Initialization & Rendering Fix
+  useEffect(() => {
+    if (showMap && isLeafletReady && mapContainerRef.current && !mapRef.current) {
+      const L = (window as any).L;
+      if (!L) return;
+
+      mapRef.current = L.map(mapContainerRef.current).setView([formData.lat, formData.lng], 12);
+
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community'
+      }).addTo(mapRef.current);
+
+      L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}{r}.png', {
+        opacity: 0.5,
+        attribution: 'Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL.'
+      }).addTo(mapRef.current);
+
+      const icon = L.icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+      });
+
+      markerRef.current = L.marker([formData.lat, formData.lng], {
+        draggable: true,
+        icon: icon
+      }).addTo(mapRef.current);
+
+      markerRef.current.on('dragend', async () => {
+        const position = markerRef.current.getLatLng();
+        updateLocationData(position.lat, position.lng);
+      });
+
+      mapRef.current.on('click', (e: any) => {
+        const { lat, lng } = e.latlng;
+        markerRef.current.setLatLng([lat, lng]);
+        updateLocationData(lat, lng);
+      });
+
+      setTimeout(() => {
+        if (mapRef.current) mapRef.current.invalidateSize();
+      }, 300);
+    }
+
+    return () => {
+      if (!showMap && mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, [formData.lat, formData.lng, isLeafletReady, showMap]);
+
+  useEffect(() => {
+    if (!showMap || !mapRef.current) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    }, 100);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [showMap]);
+
+  const updateLocationData = async (lat: number, lng: number) => {
+    setFormData((prev: any) => ({ ...prev, lat, lng }));
+    
+    // Reverse Geocoding (Free Nominatim API)
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=${isRTL ? 'ar' : 'en'}`);
+      const data = await response.json();
+      if (data.display_name) {
+        setFormData((prev: any) => ({ ...prev, address: data.display_name }));
+      }
+    } catch (error) {
+      console.error("Reverse geocoding error:", error);
+    }
+  };
+
+  const getUserLocation = () => {
+    setIsLocating(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setFormData((prev: any) => ({ ...prev, lat: latitude, lng: longitude }));
+          
+          if (mapRef.current && markerRef.current) {
+            mapRef.current.setView([latitude, longitude], 16);
+            markerRef.current.setLatLng([latitude, longitude]);
+          }
+          
+          updateLocationData(latitude, longitude);
+          setIsLocating(false);
+          setShowMap(true);
+        },
+        () => {
+          setIsLocating(false);
+          alert(isRTL ? "عفواً، لا يمكن الوصول لموقعك الحالي. يرجى تفعيله من الإعدادات." : "Unable to retrieve your location. Please enable GPS.");
+        }
+      );
+    }
+  };
+
+  const handleNextStep = async () => {
+    if (step === 1) {
+      if (!formData.name || !formData.phone || !formData.address) {
+        return;
+      }
+
+      if (session?.email) {
+        try {
+          await saveProfile({
+            fullName: formData.name,
+            phone: formData.phone,
+            defaultAddress: formData.address,
+            defaultLat: formData.lat,
+            defaultLng: formData.lng,
+            locale: isRTL ? 'ar' : 'en',
+          });
+          setAccountNotice(
+            isRTL
+              ? 'تم تحديث بياناتك داخل الحساب قبل الانتقال للدفع.'
+              : 'Your account details were updated before payment.',
+          );
+        } catch (error) {
+          console.error('Unable to save the signed-in shopper profile before checkout.', error);
+          setAccountNotice(
+            isRTL
+              ? 'تعذر تحديث بيانات الحساب الآن، لكن يمكنك إكمال الدفع وسيبقى الطلب محفوظًا إذا نجح لاحقًا.'
+              : 'We could not update your profile right now, but you can continue to payment and the order can still be saved after success.',
+          );
+        }
+      } else {
+        setAccountNotice('');
+      }
+
+      saveWebCheckoutDraft({
+        customerName: formData.name,
+        customerPhone: formData.phone,
+        customerAddress: formData.address,
+        customerLat: formData.lat,
+        customerLng: formData.lng,
+        subtotal: totalPrice,
+        deliveryFee,
+        discount: 0,
+        finalTotal,
+        locale: isRTL ? 'ar' : 'en',
+        items: items.map((item) => ({
+          productId: item.product.id,
+          name: isRTL ? item.product.name.ar : item.product.name.en,
+          quantity: item.quantity,
+          unitPrice: item.product.price ?? 0,
+          lineTotal: (item.product.price ?? 0) * item.quantity,
+          image: item.product.image ?? '',
+        })),
+      });
+    }
+    setStep(step + 1);
+  };
+
+  if (isSuccess) {
+    return (
+      <main className="min-h-screen py-20 flex items-center justify-center px-4 relative z-10">
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="max-w-md w-full p-8 md:p-12 text-center bg-white rounded-[3rem] shadow-2xl relative overflow-hidden">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-8 text-green-600 sm:w-24 sm:h-24">
+            <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12" />
+          </div>
+          <h1 className="text-3xl font-black mb-4">{isRTL ? 'تم الطلب بنجاح!' : 'Order Placed!'}</h1>
+          <p className="text-gray-600 mb-10 leading-relaxed font-medium">{isRTL ? 'سنتواصل معك قريباً لتوصيل طلبك المبرد لموقعك في الرياض.' : 'We will contact you soon to deliver your order in Riyadh.'}</p>
+          {orderSyncMessage ? (
+            <div className="mb-4 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold leading-7 text-slate-600">
+              {orderSyncMessage}
+            </div>
+          ) : null}
+          {session && isConfigured ? (
+            <button
+              type="button"
+              onClick={openAccountDialog}
+              className="mb-3 w-full rounded-3xl border border-[#153b66]/15 bg-white py-4 font-black text-[#153b66] transition hover:bg-slate-50"
+            >
+              {isRTL ? 'افتح حسابي' : 'Open My Account'}
+            </button>
+          ) : null}
+          <button onClick={() => navigate('/')} className="w-full py-5 bg-[#153b66] text-white rounded-3xl font-black text-lg hover:shadow-2xl transition-all">
+            {isRTL ? 'العودة للرئيسية' : 'Back to Home'}
+          </button>
+        </motion.div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen py-16 sm:py-24 bg-gray-50/50 relative z-10">
+      <div className="w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Main Delivery Flow */}
+          <div className="lg:col-span-7">
+            <div className="flex items-center gap-4 mb-10">
+              <button 
+                onClick={() => step === 1 ? navigate('/cart') : setStep(1)}
+                className="w-10 h-10 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-center justify-center text-gray-400 hover:text-[#153b66] transition-all sm:w-12 sm:h-12"
+              >
+                <ArrowLeft className={`w-5 h-5 sm:w-6 sm:h-6 ${isRTL ? 'rotate-180' : ''}`} />
+              </button>
+              <div>
+                <h1 className="text-3xl font-black text-gray-900">{isRTL ? 'تحديد الموقع والتوصيل' : 'Delivery & Location'}</h1>
+                <p className="text-gray-400 mt-1 text-sm font-medium">{isRTL ? (step === 1 ? 'موقعك في الرياض بدقة عالية' : 'الدفع الآمن') : (step === 1 ? 'Precision Riyadh location' : 'Secure Payment')}</p>
+              </div>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {step === 1 && (
+                <motion.div key="step1" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }} className="space-y-6">
+                  <div className={`rounded-3xl border p-4 sm:p-5 ${session ? 'border-emerald-200 bg-emerald-50/90' : 'border-[#153b66]/10 bg-[#153b66]/5'}`}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-black text-gray-900">
+                          {session
+                            ? (isRTL ? 'أنت مسجل الآن داخل الحساب' : 'You are signed in now')
+                            : (isRTL ? 'التسجيل اختياري لحفظ بياناتك وطلباتك' : 'Signing in is optional to save your details and orders')}
+                        </p>
+                        <p className="mt-1 text-sm leading-7 text-gray-600">
+                          {session
+                            ? (isRTL
+                                ? `سيتم استخدام ${session.email ?? 'حسابك'} لحفظ بيانات هذا الطلب داخل حسابك.`
+                                : `${session.email ?? 'Your account'} will be used to save this order and your details.`)
+                            : (isRTL
+                                ? 'يمكنك إكمال الطلب كضيف، أو تسجيل الدخول بالإيميل لحفظ الاسم والجوال والعنوان والطلبات الناجحة.'
+                                : 'You can continue as a guest, or sign in with email to save your name, phone, address, and successful orders.')}
+                        </p>
+                        {accountNotice ? (
+                          <p className="mt-2 text-sm font-semibold text-[#153b66]">{accountNotice}</p>
+                        ) : null}
+                        {!session && !isConfigured ? (
+                          <p className="mt-2 text-sm font-semibold text-[#153b66]">
+                            {isRTL
+                              ? 'يمكنك المتابعة الآن كضيف بشكل طبيعي. خيار حفظ البيانات داخل الحساب سيظهر هنا عند تفعيله.'
+                              : 'You can continue right now as a guest normally. The option to save your details in an account will appear here once it is enabled.'}
+                          </p>
+                        ) : null}
+                      </div>
+                      {!session ? (
+                        isConfigured ? (
+                        <button
+                          type="button"
+                          onClick={openAccountDialog}
+                          className="inline-flex items-center justify-center rounded-full bg-[#153b66] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0f2f53]"
+                        >
+                          {isRTL ? 'سجّل بالإيميل' : 'Sign in with email'}
+                        </button>
+                        ) : (
+                          <span className="inline-flex items-center justify-center rounded-full border border-[#153b66]/15 bg-white px-5 py-3 text-sm font-bold text-[#153b66]">
+                            {isRTL ? 'الطلب كضيف مفعّل الآن' : 'Guest checkout is active now'}
+                          </span>
+                        )
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={openAccountDialog}
+                          className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-white px-5 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-100/60"
+                        >
+                          {isRTL ? 'فتح الحساب' : 'Open account'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Riyadh Only Banner */}
+                  <div className="bg-[#153b66]/5 border border-[#153b66]/10 p-4 rounded-3xl flex items-center gap-4">
+                    <div className="w-9 h-9 bg-white rounded-2xl shadow-sm flex items-center justify-center flex-shrink-0 sm:w-10 sm:h-10">
+                      <MapPin className="w-4 h-4 text-[#153b66] sm:w-5 sm:h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-gray-900">{isRTL ? 'تغطية الرياض فقط' : 'Riyadh Coverage Only'}</p>
+                      <p className="text-xs text-gray-400">{isRTL ? 'نحن متخصصون في توصيل الرياض بأسرع وقت' : 'Specialized Riyadh fast delivery service'}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-[2.5rem] p-6 sm:p-10 shadow-xl shadow-gray-200/30 border border-gray-100 space-y-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <label className="text-sm font-bold text-gray-500">{isRTL ? 'الاسم بالكامل' : 'Full Name'}</label>
+                        <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full h-16 rounded-2xl bg-gray-50 border border-gray-100 px-6 text-lg font-bold focus:border-[#153b66] outline-none transition-all" />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-sm font-bold text-gray-500">{isRTL ? 'رقم الهاتف (واتساب)' : 'Phone (WhatsApp)'}</label>
+                        <input type="tel" dir="ltr" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} placeholder="966 50 000 0000" className="w-full h-16 rounded-2xl bg-gray-50 border border-gray-100 px-6 text-lg font-bold focus:border-[#153b66] outline-none transition-all" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="flex flex-col sm:flex-row items-center gap-4">
+                         <h3 className="text-lg font-bold text-gray-800">{isRTL ? 'عنوان التوصيل' : 'Delivery Address'}</h3>
+                         <div className="flex gap-2 w-full sm:w-auto">
+                            <button onClick={getUserLocation} className="flex-1 sm:flex-none h-12 px-4 bg-sky-50 text-[#153b66] rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-sky-100 transition-all">
+                               {isLocating ? <div className="w-4 h-4 border-2 border-[#153b66] border-t-transparent rounded-full animate-spin" /> : <Locate className="w-4 h-4" />}
+                               {isRTL ? 'موقعي الحالي' : 'Current Location'}
+                            </button>
+                            <button onClick={() => setShowMap(!showMap)} className={`flex-1 sm:flex-none h-12 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${showMap ? 'bg-[#153b66] text-white' : 'bg-gray-100 text-gray-600'}`}>
+                               <Navigation className="w-4 h-4" />
+                               {isRTL ? 'اكتشف الخريطة' : 'Explore Map'}
+                            </button>
+                         </div>
+                      </div>
+
+                      {showMap && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 350, opacity: 1 }} className="w-full rounded-3xl overflow-hidden shadow-inner bg-gray-100 relative group">
+                          <div ref={mapContainerRef} className="w-full h-full z-0" />
+                          {!isLeafletReady && !mapLoadError && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/65 backdrop-blur-sm">
+                              <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg">
+                                <div className="h-5 w-5 rounded-full border-2 border-[#153b66] border-t-transparent animate-spin" />
+                                <span className="text-sm font-bold text-gray-700">
+                                  {isRTL ? 'جارٍ تحميل الخريطة...' : 'Loading map...'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {mapLoadError && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/75 backdrop-blur-sm px-6 text-center">
+                              <p className="max-w-sm text-sm font-semibold text-red-600">{mapLoadError}</p>
+                            </div>
+                          )}
+                          <div className="absolute top-4 left-4 right-4 z-10 pointer-events-none">
+                             <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/20 flex items-center gap-3">
+                                <Search className="w-4 h-4 text-[#153b66]" />
+                                <span className="text-xs font-bold text-gray-600">{isRTL ? 'حرك العلامة لتحديد الموقع بدقة' : 'Drag marker to set exact location'}</span>
+                             </div>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      <textarea value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} placeholder={isRTL ? 'يرجى كتابة العنوان بالتفصيل (الحي، الشارع، رقم الشقة)' : 'Detailed address (District, Street, Villa/Apt num)'} className="w-full h-32 p-6 rounded-2xl bg-gray-50 border border-gray-100 text-lg font-medium focus:border-[#153b66] outline-none transition-all resize-none shadow-sm" />
+                    </div>
+
+                    <button onClick={handleNextStep} disabled={!formData.name || !formData.phone || !formData.address} className="w-full h-20 bg-gradient-to-r from-[#153b66] to-[#2b648c] text-white rounded-[1.7rem] font-black text-xl hover:shadow-2xl transition-all disabled:opacity-30">
+                      {isRTL ? 'الاستمرار للدفع الآمن' : 'Continue to Payment'}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {step === 2 && (
+                <motion.div key="step2" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6">
+                  <div className="bg-white rounded-[2.5rem] p-6 sm:p-10 shadow-xl shadow-gray-200/30 border border-gray-100 overflow-hidden">
+                    {paymentLoadError && (
+                      <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                        {paymentLoadError}
+                      </div>
+                    )}
+                    <div className="moyasar-form-container min-h-[400px]">
+                      <div className="flex flex-col items-center justify-center h-full py-20 space-y-4">
+                        <div className="w-10 h-10 border-4 border-[#153b66] border-t-transparent rounded-full animate-spin sm:w-12 sm:h-12" />
+                        <p className="text-gray-400 font-bold">{isRTL ? 'جاري تحميل بوابة الدفع...' : 'Loading Payment Gateway...'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Sidebar Summary */}
+          <div className="lg:col-span-5 sticky top-24">
+            <div className="bg-gray-900 rounded-[2.5rem] p-8 text-white shadow-2xl overflow-hidden">
+               <h3 className="text-xl font-black mb-8 border-b border-white/10 pb-4">{isRTL ? `ملخص الطلب (${totalItems})` : `Order Summary (${totalItems})`}</h3>
+               <div className="space-y-4 max-h-[40vh] overflow-y-auto mb-8 pr-2 custom-scrollbar">
+                  {items.map((item) => (
+                    <div key={item.product.id} className="flex gap-4 items-center">
+                      <div className="w-14 h-14 rounded-2xl bg-white/5 p-1 border border-white/10 flex-shrink-0">
+                        <ProductImage product={item.product} isRTL={isRTL} size="thumb" />
+                      </div>
+                      <div className="flex-1"><h4 className="text-sm font-bold line-clamp-1">{isRTL ? item.product.name.ar : item.product.name.en}</h4><p className="text-xs text-white/40 mt-1">{item.quantity} x {formatSarPrice(item.product.price, isRTL)}</p></div>
+                      <div className="font-bold text-[#2b648c]">{formatSarPrice((item.product.price ?? 0) * item.quantity, isRTL)}</div>
+                    </div>
+                  ))}
+               </div>
+               <div className="space-y-4 pt-6 mt-6 border-t border-white/10">
+                  <div className="flex justify-between text-white/50 text-sm"><span>{isRTL ? 'المجموع' : 'Subtotal'}</span><span>{formatSarPrice(totalPrice, isRTL)}</span></div>
+                  <div className="flex justify-between text-white/50 text-sm"><span>{isRTL ? 'التوصيل' : 'Delivery'}</span><span className={deliveryFee === 0 ? 'text-green-400' : ''}>{deliveryFee === 0 ? isRTL ? 'مجاني' : 'Free' : formatSarPrice(deliveryFee, isRTL)}</span></div>
+                  <div className="flex justify-between items-center pt-4 border-t border-white/10"><span className="text-2xl font-black">{isRTL ? 'الإجمالي' : 'Total'}</span><span className="text-3xl font-black text-[#2b648c]">{formatSarPrice(finalTotal, isRTL)}</span></div>
+               </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  );
+}

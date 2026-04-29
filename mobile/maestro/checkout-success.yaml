@@ -1,0 +1,38 @@
+appId: com.riq.store
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: tab-home
+- tapOn:
+    id: language-toggle
+- tapOn:
+    id: tab-products
+- tapOn:
+    id: product-card-agadir-330-40
+- tapOn:
+    id: product-detail-add-to-cart
+- tapOn:
+    id: tab-cart
+- tapOn:
+    id: cart-checkout-button
+- tapOn:
+    id: checkout-name-input
+- inputText: Test Buyer
+- tapOn:
+    id: checkout-phone-input
+- inputText: 0500000000
+- tapOn:
+    id: checkout-address-input
+- inputText: Riyadh Test Street 1
+- hideKeyboard
+- tapOn:
+    id: checkout-continue-button
+- assertVisible: Payment via the web bridge
+- openLink: riqstore://checkout/result?status=success&id=TEST-001
+- assertVisible: Payment completed successfully
+- tapOn:
+    id: result-back-home-button
+- tapOn:
+    id: tab-cart
+- assertVisible: Your cart is empty

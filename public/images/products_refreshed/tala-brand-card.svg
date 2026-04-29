@@ -1,0 +1,17 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="900" rx="64" fill="#F4F9FC"/>
+  <rect x="48" y="48" width="1104" height="804" rx="56" fill="url(#bg)"/>
+  <circle cx="250" cy="210" r="140" fill="#CBE9F7" fill-opacity="0.75"/>
+  <circle cx="960" cy="690" r="170" fill="#B6D6EB" fill-opacity="0.65"/>
+  <rect x="148" y="188" width="904" height="524" rx="40" fill="white" fill-opacity="0.84"/>
+  <path d="M600 268C545.7 268 501 312.7 501 367V423C501 514.9 546.6 603 624.5 655.9C631.9 660.8 641.3 660.8 648.7 655.9C726.4 603 772 514.9 772 423V367C772 312.7 727.3 268 673 268H600Z" fill="#1F5D89"/>
+  <path d="M636.5 318C604.7 364.1 594 416.1 604 468.2C612 509.5 629.8 543.2 636.4 554.7C642.9 543.1 660.7 509.4 668.7 468.2C678.8 416 668 364 636.5 318Z" fill="#E7F5FB"/>
+  <text x="600" y="710" text-anchor="middle" fill="#0E3656" font-family="Tahoma, Arial, sans-serif" font-size="120" font-weight="700">تالا</text>
+  <text x="600" y="790" text-anchor="middle" fill="#3B6A8D" font-family="Tahoma, Arial, sans-serif" font-size="48" font-weight="600" letter-spacing="10">TALA</text>
+  <defs>
+    <linearGradient id="bg" x1="110" y1="120" x2="1080" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DFF4FF"/>
+      <stop offset="1" stop-color="#BEDCF1"/>
+    </linearGradient>
+  </defs>
+</svg>

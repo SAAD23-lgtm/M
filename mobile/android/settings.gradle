@@ -1,0 +1,26 @@
+pluginManagement {
+  def workspaceRoot = rootDir.getParentFile().getParentFile()
+  includeBuild(new File(workspaceRoot, "node_modules/@react-native/gradle-plugin").absolutePath)
+  includeBuild(new File(workspaceRoot, "node_modules/expo-modules-autolinking/android/expo-gradle-plugin").absolutePath)
+}
+
+plugins {
+  id("com.facebook.react.settings")
+  id("expo-autolinking-settings")
+}
+
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+  if (System.getenv('EXPO_USE_COMMUNITY_AUTOLINKING') == '1') {
+    ex.autolinkLibrariesFromCommand()
+  } else {
+    ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)
+  }
+}
+expoAutolinking.useExpoModules()
+
+rootProject.name = 'Riq Store'
+
+expoAutolinking.useExpoVersionCatalog()
+
+include ':app'
+includeBuild(new File(rootDir.getParentFile().getParentFile(), "node_modules/@react-native/gradle-plugin").absolutePath)

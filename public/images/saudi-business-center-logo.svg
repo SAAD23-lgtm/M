@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
+  <defs>
+    <linearGradient id="sbc-mark-gradient" x1="38" y1="30" x2="195" y2="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9A5BFF"/>
+      <stop offset="55%" stop-color="#6F57FF"/>
+      <stop offset="100%" stop-color="#2FC9FF"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(120 74)">
+    <g fill="url(#sbc-mark-gradient)" stroke="#27235F" stroke-width="3.2" stroke-linejoin="round">
+      <g transform="rotate(0)">
+        <path d="M0 -56L10 -25L3 -15L0 -30L-3 -15L-10 -25L0 -56Z"/>
+      </g>
+      <g transform="rotate(45)">
+        <path d="M0 -56L10 -25L3 -15L0 -30L-3 -15L-10 -25L0 -56Z"/>
+      </g>
+      <g transform="rotate(90)">
+        <path d="M0 -56L10 -25L3 -15L0 -30L-3 -15L-10 -25L0 -56Z"/>
+      </g>
+      <g transform="rotate(135)">
+        <path d="M0 -56L10 -25L3 -15L0 -30L-3 -15L-10 -25L0 -56Z"/>
+      </g>
+      <g transform="rotate(180)">
+        <path d="M0 -56L10 -25L3 -15L0 -30L-3 -15L-10 -25L0 -56Z"/>
+      </g>
+      <g transform="rotate(225)">
+        <path d="M0 -56L10 -25L3 -15L0 -30L-3 -15L-10 -25L0 -56Z"/>
+      </g>
+      <g transform="rotate(270)">
+        <path d="M0 -56L10 -25L3 -15L0 -30L-3 -15L-10 -25L0 -56Z"/>
+      </g>
+      <g transform="rotate(315)">
+        <path d="M0 -56L10 -25L3 -15L0 -30L-3 -15L-10 -25L0 -56Z"/>
+      </g>
+      <circle r="9.5" fill="#3B367D"/>
+    </g>
+  </g>
+
+  <text
+    x="120"
+    y="172"
+    text-anchor="middle"
+    fill="#F0E7FF"
+    stroke="#433A89"
+    stroke-width="2"
+    paint-order="stroke fill"
+    font-family="'Segoe UI', Tahoma, Arial, sans-serif"
+    font-size="21"
+    font-weight="700"
+    direction="rtl"
+    unicode-bidi="plaintext"
+  >المركز السعودي للأعمال</text>
+  <text
+    x="120"
+    y="204"
+    text-anchor="middle"
+    fill="#F0E7FF"
+    stroke="#433A89"
+    stroke-width="2"
+    paint-order="stroke fill"
+    font-family="'Segoe UI', Tahoma, Arial, sans-serif"
+    font-size="18"
+    font-weight="700"
+  >Saudi Business Center</text>
+</svg>

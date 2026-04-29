@@ -1,0 +1,7 @@
+.expo
+.expo-shared
+.expo-export-check
+.env
+dist
+coverage
+node_modules
