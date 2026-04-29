@@ -17,6 +17,7 @@ import {
   Sparkles,
   Star,
   UserRound,
+  X,
 } from 'lucide-react';
 import { useWebAuth } from '../features/auth/WebAuthProvider';
 import { BRAND_NAME_AR, BRAND_NAME_EN } from '../lib/brand';
@@ -42,6 +43,11 @@ type ExperienceCard = {
   title: string;
   subtitle: string;
   points: string[];
+};
+
+type InstallGuideStep = {
+  title: string;
+  description: string;
 };
 
 function buildFeatureCards(isRTL: boolean): FeatureCard[] {
@@ -150,6 +156,38 @@ function isAndroidDevice() {
   return /Android/i.test(window.navigator.userAgent);
 }
 
+function buildIosFallbackSteps(isRTL: boolean): InstallGuideStep[] {
+  return isRTL
+    ? [
+        {
+          title: 'افتح الصفحة من Safari',
+          description: 'نسخة iPhone المؤقتة هي Web App، وiOS يثبتها من Safari فقط.',
+        },
+        {
+          title: 'اضغط مشاركة',
+          description: 'من شريط Safari اضغط زر المشاركة.',
+        },
+        {
+          title: 'اختر إضافة للشاشة الرئيسية',
+          description: 'بعد الإضافة ستظهر كتطبيق على شاشة iPhone الرئيسية.',
+        },
+      ]
+    : [
+        {
+          title: 'Open this page in Safari',
+          description: 'The temporary iPhone version is a Web App, and iOS installs it from Safari.',
+        },
+        {
+          title: 'Tap Share',
+          description: 'Use the Share button in the Safari toolbar.',
+        },
+        {
+          title: 'Choose Add to Home Screen',
+          description: 'After adding it, the app appears on your iPhone home screen.',
+        },
+      ];
+}
+
 export default function AppInstall() {
   const { i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
@@ -158,15 +196,18 @@ export default function AppInstall() {
   const [isInstalled, setIsInstalled] = useState(() => isStandaloneDisplayMode());
   const [promptOutcome, setPromptOutcome] = useState<InstallPromptOutcome | null>(null);
   const [isPrompting, setIsPrompting] = useState(false);
+  const [isIosFallbackOpen, setIsIosFallbackOpen] = useState(false);
   const iosDevice = isIosDevice();
   const androidDevice = isAndroidDevice();
   const iosAppUrl = getIosAppUrl();
   const androidAppUrl = getAndroidAppUrl();
   const hasNativeIosDownload = Boolean(iosAppUrl);
   const hasNativeAndroidDownload = Boolean(androidAppUrl);
+  const hasIosFallback = iosDevice && !hasNativeIosDownload && !isInstalled;
   const canTriggerBrowserInstall = !iosDevice && !androidDevice && !isInstalled && deferredPrompt !== null;
   const featureCards = buildFeatureCards(isRTL);
   const experienceCards = buildExperienceCards(isRTL);
+  const iosFallbackSteps = buildIosFallbackSteps(isRTL);
 
   useEffect(() => {
     const syncInstalledState = () => {
@@ -231,8 +272,8 @@ export default function AppInstall() {
           : 'Tap the button and install the iPhone app directly from TestFlight.')
       : iosDevice
         ? (isRTL
-            ? 'تطبيق iPhone يحتاج رابط TestFlight.'
-            : 'The iPhone app needs a TestFlight link.')
+            ? 'تطبيق iPhone الحقيقي يحتاج TestFlight، والنسخة المؤقتة المتاحة الآن هي Web App.'
+            : 'The real iPhone app needs TestFlight, and the temporary version available now is a Web App.')
         : androidDevice && hasNativeAndroidDownload
           ? (isRTL
               ? 'يمكنك تنزيل تطبيق Android مباشرة من الموقع وتثبيته من ملف APK.'
@@ -336,11 +377,15 @@ export default function AppInstall() {
                     <ExternalLink className="h-5 w-5" />
                     <span>{isRTL ? 'نزّل تطبيق iPhone الآن' : 'Download the iPhone App Now'}</span>
                   </a>
-                ) : iosDevice ? (
-                  <span className="inline-flex items-center justify-center gap-2 rounded-full border border-[#153b66]/15 bg-white/90 px-6 py-3 text-base font-semibold text-[#153b66] shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)]">
+                ) : hasIosFallback ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsIosFallbackOpen(true)}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#153b66] px-6 py-3 text-base font-semibold text-white shadow-[0_18px_40px_-24px_rgba(21,59,102,0.65)] transition hover:bg-[#0f2f53]"
+                  >
                     <Smartphone className="h-5 w-5" />
-                    {isRTL ? 'iPhone يحتاج رابط TestFlight' : 'iPhone needs a TestFlight link'}
-                  </span>
+                    {isRTL ? 'ثبّت نسخة iPhone المؤقتة' : 'Install Temporary iPhone Version'}
+                  </button>
                 ) : androidDevice && hasNativeAndroidDownload ? (
                   <a
                     href={androidAppUrl}
@@ -390,8 +435,8 @@ export default function AppInstall() {
                 {!isConfigured ? (
                   <p className="mt-2 text-[#153b66]">
                     {isRTL
-                      ? 'حالياً يمكنك تنزيل تطبيق Android مباشرة، وسيعمل زر iPhone فور إضافة رابط TestFlight.'
-                      : 'Right now you can download the Android app directly, and the iPhone button will work as soon as the TestFlight link is added.'}
+                      ? 'حالياً يمكنك تنزيل تطبيق Android مباشرة، وتثبيت نسخة iPhone المؤقتة كـ Web App، وسيعمل زر TestFlight فور إضافة الرابط.'
+                      : 'Right now you can download Android directly, install the temporary iPhone Web App, and the TestFlight button will work as soon as the link is added.'}
                   </p>
                 ) : null}
               </div>
@@ -566,8 +611,8 @@ export default function AppInstall() {
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-8 text-white/78 sm:text-base">
                   {isRTL
-                    ? 'نزّل تطبيق Android مباشرة، أو استخدم رابط TestFlight عند توفره لتثبيت iPhone. ويمكن لاحقًا إضافة حساب بالإيميل لحفظ معلوماتك وطلباتك.'
-                    : 'Download the Android app directly, or use the TestFlight link when available to install on iPhone. An optional email account can organize your details later.'}
+                    ? 'نزّل تطبيق Android مباشرة، وثبّت نسخة iPhone المؤقتة كـ Web App لحين توفر رابط TestFlight. ويمكن لاحقًا إضافة حساب بالإيميل لحفظ معلوماتك وطلباتك.'
+                    : 'Download Android directly, and install the temporary iPhone Web App until the TestFlight link is available. An optional email account can organize your details later.'}
                 </p>
               </div>
 
@@ -591,6 +636,73 @@ export default function AppInstall() {
           </div>
         </div>
       </section>
+
+      {isIosFallbackOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-end bg-slate-950/45 px-3 py-4 backdrop-blur-sm sm:items-center sm:justify-center">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ios-fallback-title"
+            className="w-full max-w-lg rounded-[2rem] border border-white/80 bg-white p-5 text-slate-900 shadow-[0_30px_90px_-45px_rgba(15,23,42,0.75)] sm:p-6"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className={isRTL ? 'text-right' : 'text-left'}>
+                <p className="text-sm font-semibold text-[#5b738a]">
+                  {isRTL ? 'حل iPhone المؤقت' : 'Temporary iPhone Option'}
+                </p>
+                <h2 id="ios-fallback-title" className="mt-2 text-2xl font-black text-[#10263f]">
+                  {isRTL ? 'ثبّت نسخة الويب على الشاشة الرئيسية' : 'Install the Web App on your home screen'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsIosFallbackOpen(false)}
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-[#153b66]/30 hover:text-[#153b66]"
+                aria-label={isRTL ? 'إغلاق' : 'Close'}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className={`mt-4 text-sm leading-7 text-slate-600 ${isRTL ? 'text-right' : 'text-left'}`}>
+              {isRTL
+                ? 'ده حل مؤقت متاح الآن على iPhone. التثبيت الحقيقي بضغطة واحدة كتطبيق Native سيعمل فور إضافة رابط TestFlight.'
+                : 'This is the temporary option available now on iPhone. True one-tap native install will work as soon as a TestFlight link is added.'}
+            </p>
+
+            <div className="mt-5 space-y-3">
+              {iosFallbackSteps.map((step, index) => (
+                <div key={step.title} className="flex gap-3 rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#153b66] text-sm font-black text-white">
+                    {index + 1}
+                  </div>
+                  <div className={isRTL ? 'text-right' : 'text-left'}>
+                    <p className="font-black text-slate-900">{step.title}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">{step.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setIsIosFallbackOpen(false)}
+                className="inline-flex flex-1 items-center justify-center rounded-full bg-[#153b66] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0f2f53]"
+              >
+                {isRTL ? 'تمام' : 'Got it'}
+              </button>
+              <Link
+                to="/products"
+                onClick={() => setIsIosFallbackOpen(false)}
+                className="inline-flex flex-1 items-center justify-center rounded-full border border-[#153b66]/15 px-5 py-3 text-sm font-bold text-[#153b66] transition hover:border-[#153b66]/35"
+              >
+                {isRTL ? 'ابدأ من المنتجات' : 'Start with Products'}
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
     </main>
   );
