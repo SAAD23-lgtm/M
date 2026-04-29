@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -6,7 +5,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock3,
-  Download,
   ExternalLink,
   Globe,
   MapPin,
@@ -17,21 +15,14 @@ import {
   Sparkles,
   Star,
   UserRound,
-  X,
 } from 'lucide-react';
 import { useWebAuth } from '../features/auth/WebAuthProvider';
 import { BRAND_NAME_AR, BRAND_NAME_EN } from '../lib/brand';
 import {
-  clearDeferredInstallPrompt,
-  ensurePwaInstallTracking,
   getAndroidAppUrl,
   getIosAppUrl,
   isIosDevice,
-  isSafariBrowser,
   isStandaloneDisplayMode,
-  subscribeToDeferredInstallPrompt,
-  type BeforeInstallPromptEvent,
-  type InstallPromptOutcome,
 } from '../lib/pwa';
 
 type FeatureCard = {
@@ -59,8 +50,8 @@ function buildFeatureCards(isRTL: boolean): FeatureCard[] {
       icon: Sparkles,
       title: isRTL ? 'واجهة أنظف وأسهل' : 'Cleaner Everyday Experience',
       description: isRTL
-        ? 'تجربة أقرب للتطبيق الحقيقي، مع وصول سريع من الشاشة الرئيسية وتصميم مرتب يناسب الاستخدام اليومي على الجوال.'
-        : 'An app-like flow with Home Screen access and a cleaner layout built for everyday mobile use.',
+        ? 'تجربة أقرب للتطبيق الحقيقي، مع فتح سريع من رابط التطبيق الرسمي وتصميم مرتب يناسب الاستخدام اليومي على الجوال.'
+        : 'A native-app-focused flow with official download access and a cleaner layout built for everyday mobile use.',
     },
     {
       icon: Clock3,
@@ -131,12 +122,12 @@ function buildExperienceCards(isRTL: boolean): ExperienceCard[] {
       subtitle: isRTL ? 'كل الجديد أقرب لك' : 'Fresh deals, easier to reach',
       points: isRTL
         ? [
-            'العروض تبقى أقرب لك من الشاشة الرئيسية.',
+            'العروض تبقى أقرب لك من التطبيق الرسمي.',
             'الرجوع للمتجر يتم بضغطة واحدة.',
             'مناسب للرجوع السريع أكثر من مرة خلال اليوم.',
           ]
         : [
-            'Deals stay one tap away from your Home Screen.',
+            'Deals stay close through the official app path.',
             'Returning to the store takes a single tap.',
             'Ideal for quick repeat visits throughout the day.',
           ],
@@ -144,212 +135,50 @@ function buildExperienceCards(isRTL: boolean): ExperienceCard[] {
   ];
 }
 
+function isAndroidDevice() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return /Android/i.test(window.navigator.userAgent);
+}
+
 export default function AppInstall() {
   const { i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
   const { isConfigured, session, openAccountDialog } = useWebAuth();
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(() => isStandaloneDisplayMode());
-  const [promptOutcome, setPromptOutcome] = useState<InstallPromptOutcome | null>(null);
-  const [isPrompting, setIsPrompting] = useState(false);
-  const [isIosGuideOpen, setIsIosGuideOpen] = useState(false);
-
+  const isInstalled = isStandaloneDisplayMode();
   const iosDevice = isIosDevice();
-  const safariBrowser = isSafariBrowser();
-  const canTriggerInstall = !isInstalled && deferredPrompt !== null;
+  const androidDevice = isAndroidDevice();
   const iosAppUrl = getIosAppUrl();
   const androidAppUrl = getAndroidAppUrl();
   const hasNativeIosDownload = Boolean(iosAppUrl);
   const hasNativeAndroidDownload = Boolean(androidAppUrl);
-  const canShowIosPwaInstall = iosDevice && !isInstalled && !hasNativeIosDownload;
   const featureCards = buildFeatureCards(isRTL);
   const experienceCards = buildExperienceCards(isRTL);
-
-  useEffect(() => {
-    const syncInstalledState = () => {
-      setIsInstalled(isStandaloneDisplayMode());
-    };
-
-    const handleAppInstalled = () => {
-      syncInstalledState();
-      setDeferredPrompt(null);
-      setPromptOutcome('accepted');
-    };
-
-    ensurePwaInstallTracking();
-    syncInstalledState();
-    const unsubscribePrompt = subscribeToDeferredInstallPrompt((event) => {
-      setDeferredPrompt(event);
-      if (event) {
-        setPromptOutcome(null);
-      }
-    });
-
-    window.addEventListener('appinstalled', handleAppInstalled);
-    window.addEventListener('focus', syncInstalledState);
-
-    return () => {
-      unsubscribePrompt();
-      window.removeEventListener('appinstalled', handleAppInstalled);
-      window.removeEventListener('focus', syncInstalledState);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isInstalled && isIosGuideOpen) {
-      setIsIosGuideOpen(false);
-    }
-  }, [isInstalled, isIosGuideOpen]);
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt || isPrompting) {
-      return;
-    }
-
-    setIsPrompting(true);
-
-    try {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-
-      setPromptOutcome(outcome);
-      clearDeferredInstallPrompt();
-      setDeferredPrompt(null);
-
-      if (outcome === 'accepted') {
-        setIsInstalled(true);
-      }
-    } finally {
-      setIsPrompting(false);
-    }
-  };
 
   const availabilityText = isInstalled
     ? (isRTL
         ? 'التطبيق مثبت بالفعل على هذا الجهاز وجاهز للاستخدام.'
         : 'The app is already installed on this device and ready to use.')
-    : hasNativeIosDownload && iosDevice
+    : iosDevice && hasNativeIosDownload
       ? (isRTL
           ? 'اضغط الزر وثبّت التطبيق من الرابط الرسمي مباشرة.'
           : 'Tap the button and install the app directly from the official link.')
-      : hasNativeAndroidDownload && !iosDevice && !canTriggerInstall
+      : iosDevice
         ? (isRTL
-            ? 'يمكنك تنزيل تطبيق Android مباشرة من الموقع وتثبيته من ملف APK.'
-            : 'You can download the Android app directly from the website and install it from the APK file.')
-    : canShowIosPwaInstall
-      ? (isRTL
-          ? 'على iPhone النسخة المجانية المتاحة الآن هي تطبيق ويب يثبت على الشاشة الرئيسية من Safari.'
-          : 'On iPhone, the free version available now is a web app that installs to the Home Screen from Safari.')
-    : canTriggerInstall
-      ? (isRTL
-          ? 'يمكنك تثبيت التطبيق الآن مباشرة من المتصفح.'
-          : 'You can install the app right now directly from the browser.')
-        : promptOutcome === 'dismissed'
+            ? 'تطبيق iPhone يحتاج رابط TestFlight أو App Store للتثبيت بدون Safari.'
+            : 'The iPhone app needs a TestFlight or App Store link to install without Safari.')
+        : androidDevice && hasNativeAndroidDownload
           ? (isRTL
-              ? 'يمكنك إعادة المحاولة لاحقًا من هذه الصفحة أو من قائمة المتصفح.'
-              : 'You can try again later from this page or from the browser menu.')
+              ? 'يمكنك تنزيل تطبيق Android مباشرة من الموقع وتثبيته من ملف APK.'
+              : 'You can download the Android app directly from the website and install it from the APK file.')
           : (isRTL
-              ? 'سيظهر خيار التثبيت عندما يكون المتصفح والجهاز جاهزين لذلك.'
-              : 'The install option will appear when the browser and device support it.');
-
-  const iosQuickGuideSteps = isRTL
-    ? [
-        {
-          title: safariBrowser ? 'أنت جاهز من Safari' : 'افتح الصفحة في Safari',
-          description: safariBrowser
-            ? 'ممتاز. الخطوة التالية ستكون من نفس الصفحة الحالية.'
-            : 'إذا كنت داخل Chrome أو أي متصفح آخر على iPhone، افتح هذه الصفحة في Safari أولاً.',
-        },
-        {
-          title: 'اضغط مشاركة',
-          description: 'من الشريط السفلي في Safari اضغط زر المشاركة ثم ابحث عن "إضافة إلى الشاشة الرئيسية".',
-        },
-        {
-          title: 'اضغط Add',
-          description: 'بعد الإضافة سيظهر التطبيق مباشرة على الشاشة الرئيسية ويفتح كتجربة قريبة جدًا من التطبيق.',
-        },
-      ]
-    : [
-        {
-          title: safariBrowser ? 'You are already in Safari' : 'Open it in Safari',
-          description: safariBrowser
-            ? 'Great. The next step happens from this same page.'
-            : 'If you are using Chrome or another iPhone browser, open this page in Safari first.',
-        },
-        {
-          title: 'Tap Share',
-          description: 'Use the bottom Safari bar, tap Share, then choose "Add to Home Screen".',
-        },
-        {
-          title: 'Tap Add',
-          description: 'The app will appear on your Home Screen right away and open in an app-like experience.',
-        },
-      ];
+              ? 'التثبيت كتطبيق أصلي متاح فقط من روابط Android أو iPhone الرسمية.'
+              : 'Native app installation is available only from the Android or iPhone official links.');
 
   return (
     <main className="overflow-x-hidden bg-[linear-gradient(180deg,#eef6fb_0%,#ffffff_22%,#f4f9fc_100%)] pt-28 sm:pt-32">
-      {isIosGuideOpen ? (
-        <div className="fixed inset-0 z-[160] flex items-end justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-[4px] sm:items-center">
-          <button
-            type="button"
-            aria-label={isRTL ? 'إغلاق' : 'Close'}
-            onClick={() => setIsIosGuideOpen(false)}
-            className="absolute inset-0"
-          />
-
-          <div className="relative z-10 w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(180deg,#ffffff_0%,#eef6fb_100%)] shadow-[0_32px_100px_-42px_rgba(15,23,42,0.72)]">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200/80 px-5 py-5 sm:px-7">
-              <div className={isRTL ? 'text-right' : 'text-left'}>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#5b738a]">iPhone</p>
-                <h2 className="mt-2 text-2xl font-black text-slate-900">
-                  {isRTL ? 'ثبّت على الشاشة الرئيسية' : 'Add to Home Screen'}
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
-                  {isRTL
-                    ? 'iPhone لا يسمح بتثبيت تطبيق أصلي من الموقع بدون App Store أو TestFlight. هذه هي النسخة المجانية كـ Web App.'
-                    : 'iPhone does not allow native app installs from a website without App Store or TestFlight. This is the free Web App version.'}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsIosGuideOpen(false)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:text-slate-900"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="px-5 py-5 sm:px-7">
-              <div className="grid gap-4 md:grid-cols-3">
-                {iosQuickGuideSteps.map((step, index) => (
-                  <div
-                    key={step.title}
-                    className="rounded-[1.6rem] border border-white/80 bg-white/95 p-5 shadow-[0_18px_50px_-40px_rgba(15,23,42,0.24)]"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#153b66,#2b648c)] text-sm font-black text-white">
-                      {index + 1}
-                    </div>
-                    <p className="mt-4 text-base font-black text-slate-900">{step.title}</p>
-                    <p className="mt-2 text-sm leading-7 text-slate-600">{step.description}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => setIsIosGuideOpen(false)}
-                  className="inline-flex items-center justify-center rounded-full bg-[#153b66] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0f2f53]"
-                >
-                  {isRTL ? 'تمام' : 'Done'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-[8%] top-12 h-48 w-48 rounded-full bg-sky-200/45 blur-3xl" />
@@ -377,9 +206,10 @@ export default function AppInstall() {
                     <br />
                     في تجربة مريحة على جوالك
                   </>
-                ) : hasNativeAndroidDownload && !iosDevice ? (
+                ) : hasNativeAndroidDownload && androidDevice ? (
                   <a
                     href={androidAppUrl}
+                    download
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-[#153b66] px-6 py-3 text-base font-semibold text-white shadow-[0_18px_40px_-24px_rgba(21,59,102,0.65)] transition hover:bg-[#0f2f53]"
                   >
                     <ExternalLink className="h-5 w-5" />
@@ -426,7 +256,7 @@ export default function AppInstall() {
                     <CheckCircle2 className="h-5 w-5" />
                     {isRTL ? 'التطبيق مثبت بالفعل' : 'App Already Installed'}
                   </span>
-                ) : hasNativeIosDownload && iosDevice ? (
+                ) : iosDevice && hasNativeIosDownload ? (
                   <a
                     href={iosAppUrl}
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-[#153b66] px-6 py-3 text-base font-semibold text-white shadow-[0_18px_40px_-24px_rgba(21,59,102,0.65)] transition hover:bg-[#0f2f53]"
@@ -434,29 +264,20 @@ export default function AppInstall() {
                     <ExternalLink className="h-5 w-5" />
                     <span>{isRTL ? 'نزّل تطبيق iPhone الآن' : 'Download the iPhone App Now'}</span>
                   </a>
-                ) : canShowIosPwaInstall ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsIosGuideOpen(true)}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#153b66] px-6 py-3 text-base font-semibold text-white shadow-[0_18px_40px_-24px_rgba(21,59,102,0.65)] transition hover:bg-[#0f2f53]"
-                  >
+                ) : iosDevice ? (
+                  <span className="inline-flex items-center justify-center gap-2 rounded-full border border-[#153b66]/15 bg-white/90 px-6 py-3 text-base font-semibold text-[#153b66] shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)]">
                     <Smartphone className="h-5 w-5" />
-                    <span>{isRTL ? 'ثبّت على الشاشة الرئيسية' : 'Add to Home Screen'}</span>
-                  </button>
-                ) : canTriggerInstall ? (
-                  <button
-                    type="button"
-                    onClick={handleInstallClick}
-                    disabled={isPrompting}
+                    {isRTL ? 'iPhone يحتاج TestFlight أو App Store' : 'iPhone needs TestFlight or App Store'}
+                  </span>
+                ) : androidDevice && hasNativeAndroidDownload ? (
+                  <a
+                    href={androidAppUrl}
+                    download
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-[#153b66] px-6 py-3 text-base font-semibold text-white shadow-[0_18px_40px_-24px_rgba(21,59,102,0.65)] transition hover:bg-[#0f2f53] disabled:cursor-wait disabled:opacity-75"
                   >
-                    <Download className="h-5 w-5" />
-                    <span>
-                      {isPrompting
-                        ? (isRTL ? 'جاري فتح نافذة التثبيت' : 'Opening Install Prompt')
-                        : (isRTL ? 'ثبّت التطبيق الآن' : 'Install the App Now')}
-                    </span>
-                  </button>
+                    <ExternalLink className="h-5 w-5" />
+                    <span>{isRTL ? 'نزّل تطبيق Android' : 'Download the Android App'}</span>
+                  </a>
                 ) : (
                   <span className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/90 px-6 py-3 text-base font-semibold text-slate-500 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.2)]">
                     <Globe className="h-5 w-5" />
@@ -483,15 +304,8 @@ export default function AppInstall() {
                 {!isConfigured ? (
                   <p className="mt-2 text-[#153b66]">
                     {isRTL
-                      ? 'حالياً يمكنك تثبيت التطبيق والطلب كضيف بشكل طبيعي، وعندما يتم تفعيل الحسابات المحفوظة سيظهر خيار حفظ بياناتك هنا مباشرة.'
-                      : 'Right now you can install the app and order as a guest normally. Once saved accounts are enabled, the option to keep your details here will appear automatically.'}
-                  </p>
-                ) : null}
-                {iosDevice && !safariBrowser && !isInstalled ? (
-                  <p className="mt-2">
-                    {isRTL
-                      ? 'على iPhone يكتمل التثبيت من Safari فقط.'
-                      : 'On iPhone, installation is completed from Safari only.'}
+                      ? 'حالياً يمكنك تنزيل تطبيق Android مباشرة، أو استخدام رابط iPhone الرسمي عندما يتوفر، والطلب كضيف يظل متاحًا.'
+                      : 'Right now you can download the Android app directly, or use the official iPhone link when it is available, while guest ordering remains available.'}
                   </p>
                 ) : null}
               </div>
@@ -544,8 +358,8 @@ export default function AppInstall() {
                         icon: MapPin,
                         title: isRTL ? 'مناسب للاستخدام أثناء الحركة' : 'Built for On-the-Go Use',
                         text: isRTL
-                          ? 'افتح المتجر من الشاشة الرئيسية في ثوانٍ بدون رجوع متكرر للمتصفح.'
-                          : 'Launch the store from your Home Screen in seconds without repeated browser steps.',
+                          ? 'افتح المتجر من التطبيق الرسمي في ثوانٍ بدون رجوع متكرر للمتصفح.'
+                          : 'Launch the store from the official app path in seconds without repeated browser steps.',
                       },
                     ].map((item) => (
                       <div
@@ -666,8 +480,8 @@ export default function AppInstall() {
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-8 text-white/78 sm:text-base">
                   {isRTL
-                    ? 'ثبّت التطبيق إذا كان التثبيت متاحًا على جهازك الآن، وابدأ التصفح والطلب بسهولة. وإذا رغبت لاحقًا، يمكن إضافة حساب بالإيميل لحفظ معلوماتك وطلباتك بشكل منظم واحترافي.'
-                    : 'Install the app if installation is available on your device, start browsing and ordering with ease, and keep room for an optional email-based account to organize your details and order history later.'}
+                    ? 'نزّل تطبيق Android مباشرة، أو استخدم رابط iPhone الرسمي عندما يتوفر، وابدأ التصفح والطلب بسهولة. ويمكن لاحقًا إضافة حساب بالإيميل لحفظ معلوماتك وطلباتك.'
+                    : 'Download the Android app directly, or use the official iPhone link when available, then start browsing and ordering with ease. An optional email account can organize your details later.'}
                 </p>
               </div>
 
